@@ -32,7 +32,7 @@
         android:allowBackup="false">
         <activity
             android:name=".ActivityMusic"
-            android:theme="@android:style/Theme.Material.Light"
+            android:theme="@android:style/Theme.Material.DayNight"
             android:label="@string/eq_dialog_title">
             <intent-filter>
                 <action
@@ -45,7 +45,7 @@
         </activity>
         <activity
             android:name=".ControlPanelPicker"
-            android:theme="@*android:style/Theme.Holo.Dialog.Alert"
+            android:theme="@android:style/Theme.Material.DayNight.Dialog.Alert"
             android:excludeFromRecents="true" />
         <receiver
             android:name=".ControlPanelReceiver">
