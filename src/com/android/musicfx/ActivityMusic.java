@@ -30,6 +30,7 @@ import android.content.DialogInterface;
 import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.drawable.ColorDrawable;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.audiofx.AudioEffect;
@@ -37,6 +38,7 @@ import android.media.audiofx.AudioEffect.Descriptor;
 import android.media.audiofx.Virtualizer;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -58,6 +60,10 @@ import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.android.internal.util.darkkat.ThemeColorHelper;
+import com.android.internal.util.darkkat.ColorHelper;
+import com.android.internal.util.darkkat.ThemeHelper;
 
 import java.util.Formatter;
 import java.util.Locale;
@@ -120,6 +126,20 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
 
     private StringBuilder mFormatBuilder = new StringBuilder();
     private Formatter mFormatter = new Formatter(mFormatBuilder, Locale.getDefault());
+
+    private int mThemeResId = 0;
+    private boolean mCustomizeColors = false;
+    private int mDefaultPrimaryColor = 0;
+    private int mStatusBarColor = 0;
+    private int mPrimaryColor = 0;
+    private int mNavigationColor = 0;
+    private boolean mColorizeNavigationBar = false;
+    private boolean mLightStatusBar = false;
+    private boolean mLightActionBar = false;
+    private boolean mLightNavigationBar = false;
+    private boolean mIsBlackoutTheme = false;
+    private boolean mIsWhiteoutTheme = false;
+    private int mThemeOverlayAccentResId = 0;
 
     /**
      * Mapping for the EQ widget ids per band
@@ -225,6 +245,7 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
      */
     @Override
     public void onCreate(final Bundle savedInstanceState) {
+        updateTheme();
         super.onCreate(savedInstanceState);
 
         // Init context to be used in listeners
@@ -468,6 +489,80 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
 
     }
 
+    private void updateTheme() {
+        TypedValue tv = new TypedValue();
+        getTheme().resolveAttribute(android.R.attr.colorControlHighlight, tv, true);
+        if (tv.type >= TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= TypedValue.TYPE_LAST_COLOR_INT) {
+            mDefaultPrimaryColor = tv.data;
+        } else {
+            mDefaultPrimaryColor = getColor(tv.resourceId);
+        }
+
+
+        mCustomizeColors = ThemeColorHelper.customizeColors(this);
+        mStatusBarColor = ThemeColorHelper.getStatusBarBackgroundColor(this, mDefaultPrimaryColor);
+        mPrimaryColor = ThemeColorHelper.getPrimaryColor(this, mDefaultPrimaryColor);
+        mNavigationColor = ThemeColorHelper.getNavigationBarBackgroundColor(this, mDefaultPrimaryColor);
+        mColorizeNavigationBar = ThemeColorHelper.colorizeNavigationBar(this);
+        mLightStatusBar = ThemeColorHelper.lightStatusBar(this, mDefaultPrimaryColor);
+        mLightActionBar = ThemeColorHelper.lightActionBar(this, mDefaultPrimaryColor);
+        mLightNavigationBar = ThemeColorHelper.lightNavigationBar(this, mDefaultPrimaryColor);
+        mIsBlackoutTheme = ThemeHelper.isBlackoutTheme(this);
+        mIsWhiteoutTheme = ThemeHelper.isWhiteoutTheme(this);
+
+        if (mLightActionBar && mLightNavigationBar) {
+            mThemeResId = mLightStatusBar
+                    ? R.style.AppTheme_LightStatusBar_LightNavigationBar
+                    : R.style.AppTheme_LightActionBar_LightNavigationBar;
+        } else if (mLightActionBar) {
+            mThemeResId = mLightStatusBar
+                    ? R.style.AppTheme_LightStatusBar
+                    : R.style.AppTheme_LightActionBar;
+        } else if (mLightNavigationBar) {
+            mThemeResId = R.style.AppTheme_LightNavigationBar;
+        } else {
+            mThemeResId = R.style.AppTheme;
+        }
+        setTheme(mThemeResId);
+
+        mThemeOverlayAccentResId = ThemeColorHelper.getThemeOverlayAccentResId(this);
+        if (mThemeOverlayAccentResId > 0) {
+            getTheme().applyStyle(mThemeOverlayAccentResId, true);
+        }
+
+        int oldFlags = getWindow().getDecorView().getSystemUiVisibility();
+        int newFlags = oldFlags;
+        if (!mLightStatusBar) {
+            boolean isLightStatusBar = (newFlags & View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR)
+                    == View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            // Check if light status bar flag was set.
+            if (isLightStatusBar) {
+                // Remove flag
+                newFlags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            }
+        }
+        if (!mLightNavigationBar) {
+            // Check if light navigation bar flag was set
+            boolean isLightNavigationBar = (newFlags & View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR)
+                    == View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            if (isLightNavigationBar) {
+                // Remove flag
+                newFlags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
+        }
+        if (oldFlags != newFlags) {
+            getWindow().getDecorView().setSystemUiVisibility(newFlags);
+        }
+
+        if (mCustomizeColors && !mIsBlackoutTheme && !mIsWhiteoutTheme) {
+            getWindow().setStatusBarColor(mStatusBarColor);
+            getActionBar().setBackgroundDrawable(new ColorDrawable(mPrimaryColor));
+        }
+        if (mNavigationColor != 0) {
+            getWindow().setNavigationBarColor(mNavigationColor);
+        }
+    }
+
     /*
      * (non-Javadoc)
      *
@@ -476,22 +571,40 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
     @Override
     protected void onResume() {
         super.onResume();
-        if ((mVirtualizerSupported) || (mBassBoostSupported) || (mEqualizerSupported)
-                || (mPresetReverbSupported)) {
-            // Listen for broadcast intents that might affect the onscreen UI for headset.
-            final IntentFilter intentFilter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
-            intentFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
-            intentFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-            intentFilter.addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
-            registerReceiver(mReceiver, intentFilter);
+        boolean customizeColors = ThemeColorHelper.customizeColors(this);
+        int primaryColor = ThemeColorHelper.getPrimaryColor(this, mDefaultPrimaryColor);
+        boolean colorizeNavigationBar = ThemeColorHelper.colorizeNavigationBar(this);
+        boolean lightStatusBar = ThemeColorHelper.lightStatusBar(this, mDefaultPrimaryColor);
+        boolean lightActionBar = ThemeColorHelper.lightActionBar(this, mDefaultPrimaryColor);
+        boolean lightNavigationBar = ThemeColorHelper.lightNavigationBar(this, mDefaultPrimaryColor);
+        int themeOverlayAccentResId = ThemeColorHelper.getThemeOverlayAccentResId(this);
 
-            // Check if wired or Bluetooth headset is connected/on
-            final AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-            mIsHeadsetOn = (audioManager.isWiredHeadsetOn() || audioManager.isBluetoothA2dpOn());
-            Log.v(TAG, "onResume: mIsHeadsetOn : " + mIsHeadsetOn);
+            if ((mVirtualizerSupported) || (mBassBoostSupported) || (mEqualizerSupported)
+                    || (mPresetReverbSupported)) {
+                // Listen for broadcast intents that might affect the onscreen UI for headset.
+                final IntentFilter intentFilter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
+                intentFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
+                intentFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+                intentFilter.addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+                registerReceiver(mReceiver, intentFilter);
 
-            // Update UI
-            updateUI();
+                // Check if wired or Bluetooth headset is connected/on
+                final AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                mIsHeadsetOn = (audioManager.isWiredHeadsetOn() || audioManager.isBluetoothA2dpOn());
+                Log.v(TAG, "onResume: mIsHeadsetOn : " + mIsHeadsetOn);
+
+                // Update UI
+                updateUI();
+            }
+
+        if (mThemeOverlayAccentResId != themeOverlayAccentResId
+                || mCustomizeColors != customizeColors
+                || mPrimaryColor != primaryColor
+                || mColorizeNavigationBar != colorizeNavigationBar
+                || mLightStatusBar != lightStatusBar
+                || mLightActionBar != lightActionBar
+                || mLightNavigationBar != lightNavigationBar) {
+            recreate();
         }
     }
 
