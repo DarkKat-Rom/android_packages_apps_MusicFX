@@ -579,23 +579,23 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
         boolean lightNavigationBar = ThemeColorHelper.lightNavigationBar(this, mDefaultPrimaryColor);
         int themeOverlayAccentResId = ThemeColorHelper.getThemeOverlayAccentResId(this);
 
-            if ((mVirtualizerSupported) || (mBassBoostSupported) || (mEqualizerSupported)
-                    || (mPresetReverbSupported)) {
-                // Listen for broadcast intents that might affect the onscreen UI for headset.
-                final IntentFilter intentFilter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
-                intentFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
-                intentFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-                intentFilter.addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
-                registerReceiver(mReceiver, intentFilter);
+        if ((mVirtualizerSupported) || (mBassBoostSupported) || (mEqualizerSupported)
+                || (mPresetReverbSupported)) {
+            // Listen for broadcast intents that might affect the onscreen UI for headset.
+            final IntentFilter intentFilter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
+            intentFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
+            intentFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+            intentFilter.addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+            registerReceiver(mReceiver, intentFilter);
 
-                // Check if wired or Bluetooth headset is connected/on
-                final AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-                mIsHeadsetOn = (audioManager.isWiredHeadsetOn() || audioManager.isBluetoothA2dpOn());
-                Log.v(TAG, "onResume: mIsHeadsetOn : " + mIsHeadsetOn);
+            // Check if wired or Bluetooth headset is connected/on
+            final AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            mIsHeadsetOn = (audioManager.isWiredHeadsetOn() || audioManager.isBluetoothA2dpOn());
+            Log.v(TAG, "onResume: mIsHeadsetOn : " + mIsHeadsetOn);
 
-                // Update UI
-                updateUI();
-            }
+            // Update UI
+            updateUI();
+        }
 
         if (mThemeOverlayAccentResId != themeOverlayAccentResId
                 || mCustomizeColors != customizeColors
